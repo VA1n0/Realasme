@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abyssal Realm: Forge & Destiny</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
 </head>
 <body class="bg-dark">
 
@@ -106,24 +106,22 @@
                 <div id="tab-shop" class="tab-panel hidden">
                     <h2 style="font-size: 2rem; color:#ffcc00; margin-bottom: 15px;">💰 КРАМНИЦЯ</h2>
                     
-                    <!-- ПРЕМІУМ МАГАЗИН ГЕМІВ -->
                     <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #00ffff; background: #0a0a0c; border-radius: 8px;">
                         <h3 style="color:#00ffff; margin-top:0;">💎 ПРЕМІУМ ОБМІН</h3>
                         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                            <button class="btn-small bg-gold" onclick="buyPremium('gold')">💰 2000 Золота (10 💎)</button>
-                            <button class="btn-small" style="background:#a335ee; color:#fff;" onclick="buyPremium('epic')">🔮 Гарантований Епік (30 💎)</button>
-                            <button class="btn-small" style="background:#ff8000; color:#fff;" onclick="buyPremium('legendary')">✨ Гарантована Лега (100 💎)</button>
+                            <!-- ЗМІНЕНІ ЦІНИ І ТЕКСТ -->
+                            <button class="btn-small bg-gold" onclick="buyPremium('gold')">💰 5000 Золота (50 💎)</button>
+                            <button class="btn-small" style="background:#a335ee; color:#fff;" onclick="buyPremium('epic')">🔮 Гарантований Епік (150 💎)</button>
+                            <button class="btn-small" style="background:#ff8000; color:#fff;" onclick="buyPremium('legendary')">✨ Гарантована Лега (500 💎)</button>
                         </div>
                     </div>
 
-                    <!-- Вкладки крамниці -->
                     <div class="shop-tabs" style="display:flex; gap:15px; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:15px;">
                         <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0;" data-cat="weapon" onclick="generateShop('weapon')">⚔️ ЗБРОЯ ТА МАГІЯ</button>
                         <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #555, #222); color:#fff;" data-cat="armor" onclick="generateShop('armor')">🛡️ ВАЖКА БРОНЯ</button>
                         <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #1eff00, #004400); color:#000; border-color:#1eff00;" data-cat="eggs" onclick="generateShop('eggs')">🥚 ЯЙЦЯ ПЕТІВ</button>
                     </div>
                     
-                    <!-- Розширені фільтри -->
                     <div class="shop-quick-filters" style="margin-bottom:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                         <span style="color:#aaa; font-weight:bold;">ТИП: </span>
                         <button class="btn-small bg-dark" style="border:1px solid #555; color:#fff;" onclick="setFilterType('all')">Всі</button>
@@ -136,6 +134,9 @@
                         <button class="btn-small bg-dark" style="border:1px solid #1eff00; color:#1eff00;" onclick="setFilterRarity('Uncommon')">Uncommon</button>
                         <button class="btn-small bg-dark" style="border:1px solid #0070dd; color:#0070dd;" onclick="setFilterRarity('Rare')">Rare</button>
                         <button class="btn-small bg-dark" style="border:1px solid #a335ee; color:#a335ee;" onclick="setFilterRarity('Epic')">Epic</button>
+                        <!-- ДОДАНІ КНОПКИ ДЛЯ ЛЕГ ТА МІФІКІВ -->
+                        <button class="btn-small bg-dark" style="border:1px solid #ff8000; color:#ff8000;" onclick="setFilterRarity('Legendary')">Legendary</button>
+                        <button class="btn-small bg-dark" style="border:1px solid #ff00ff; color:#ff00ff;" onclick="setFilterRarity('Mythic')">Mythic</button>
                     </div>
 
                     <div id="shop-items-container" style="display:flex; flex-wrap:wrap; gap:15px;"></div>
@@ -193,6 +194,6 @@
         <div class="skills-panel"><div class="battle-skills-grid" id="battle-skills"></div><div id="b-log"></div></div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4"></script>
 </body>
 </html>
