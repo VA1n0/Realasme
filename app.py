@@ -102,25 +102,48 @@ def index():
 def register():
     data = request.json
     try:
-        supabase.table('users').insert({
+        hashed_pw = generate_password_hash(data.get('password'))
+        insert_data = {
             "username": data.get('username'), 
             "email": data.get('email'), 
-            "password_hash": generate_password_hash(data.get('password'))
-        }).execute()
+            "password_hash": hashed_pw
+        }
+        
+        try:
+            supabase.table('users').insert(insert_data).execute()
+        except Exception as insert_e:
+            if "password_hash" in str(insert_e):
+                insert_data.pop("password_hash")
+                insert_data["password"] = hashed_pw
+                supabase.table('users').insert(insert_data).execute()
+            else:
+                raise insert_e
+
         return jsonify({"status": "success", "token": create_access_token(identity=data.get('email'))}), 201
-    except:
-        return jsonify({"status": "error", "message": "Помилка! Нік/Пошта зайняті."}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Помилка реєстрації! Нік/Пошта зайняті або помилка БД: {str(e)}"}), 400
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     try:
-        user = supabase.table('users').select('*').eq('email', data.get('email')).execute().data[0]
-        if check_password_hash(user['password_hash'], data.get('password')):
+        res = supabase.table('users').select('*').eq('email', data.get('email')).execute()
+        if not res.data or len(res.data) == 0:
+            return jsonify({"status": "error", "message": "Гравця не знайдено!"}), 404
+            
+        user = res.data[0]
+        # Перевіряємо обидва варіанти колонок пароля
+        saved_hash = user.get('password_hash') or user.get('password')
+        
+        if not saved_hash:
+            return jsonify({"status": "error", "message": "Помилка бази даних: у користувача немає пароля"}), 500
+
+        if check_password_hash(saved_hash, data.get('password')):
             return jsonify({"status": "success", "token": create_access_token(identity=data.get('email')), "username": user['username']}), 200
-        return jsonify({"status": "error", "message": "Невірний пароль!"}), 401
-    except:
-        return jsonify({"status": "error", "message": "Гравця не знайдено!"}), 404
+        else:
+            return jsonify({"status": "error", "message": "Невірний пароль!"}), 401
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Помилка сервера: {str(e)}"}), 500
 
 @app.route('/api/create_character', methods=['POST'])
 @jwt_required()
@@ -134,8 +157,8 @@ def create_character():
             "survival_wave": 1, "inventory": [], "pets": [], "achievements_progress": {}, "claimed_achievements": []
         }).execute()
         return jsonify({"status": "success"}), 201
-    except:
-        return jsonify({"status": "error"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/me', methods=['GET'])
 @jwt_required()
