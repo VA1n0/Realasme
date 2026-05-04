@@ -1,6 +1,6 @@
 let playerChar = null; let currentEnemy = null; let playingNode = 1; let isBossNode = false; let isSurvivalMode = false; let survivalWave = 1; 
 let skillCooldowns = {}; let pendingBattle = null; let currentStoryNode = 1; let isBossStory = false; let battleTimer = null; let SKILLS_DB = {};
-let comboTracker = []; // ДОДАНО ДЛЯ КОМБО
+let comboTracker = []; let enemyAttackCounter = 0; // Для незалежних атак
 
 const PET_IMAGES = {
     "Яйце": "🥚", "Малий Демон": "🦇", "Демон-Вбивця": "🐺", "Вищий Демон": "👹", "Лорд Безодні": "👿",
@@ -43,12 +43,7 @@ const STORY_DB = {
 
 const ELIAS_LORE = [
     "Ці землі колись були найродючішими в регіоні. Тепер Тьма спалила врожай, залишивши лише попіл та гниль.",
-    "Я чув про могутній клан 'Орлів', що колись бився на Північному кордоні... Вони впали, але їхня воля живе у таких воїнах, як ти.",
-    "Деякі моби використовують хитрощі, щоб заплутати розум. Не піддавайся їхнім ілюзіям, тримай фокус на цілі.",
-    "Кажуть, Лорд Безодні був колись звичайною людиною... Поки не знайшов Проклятий Гримуар у руїнах старого замку.",
-    "Кожен переможений ворог робить тебе сильнішим. Але чи не стаєш ти ближчим до них з кожним вбивством?",
-    "Тут були лицарські аванпости Північного Королівства. Тепер це лише братські могили.",
-    "Твій Гримуар здатний на більше. Об'єднуй речі в Кузні, щоб отримати справжні артефакти клану Півночі."
+    "Я чув про могутній клан 'Орлів', що колись бився на Північному кордоні... Вони впали, але їхня воля живе у таких воїнах, як ти."
 ];
 
 const PET_PASSIVES_DB = {
@@ -58,12 +53,8 @@ const PET_PASSIVES_DB = {
     "thorns": { name: "+10% Шипи", color: "#ff00ff" }
 };
 
-// ГЛОБАЛЬНІ ЗМІННІ ДЛЯ ФІЛЬТРІВ
-let currentFilterType = 'all';
-let currentFilterRarity = 'all';
-
+let currentFilterType = 'all'; let currentFilterRarity = 'all';
 function getCleanSkills() { let r = playerChar.equipped_skills; if(!r) return ["attack"]; if(typeof r === 'string') return r.replace(/[{}"'[\]]/g, '').split(',').map(s => s.trim()).filter(s => SKILLS_DB[s]); if(Array.isArray(r)) return r.filter(s => SKILLS_DB[s]); return ["attack"]; }
-
 function showPopup(t, tx, ty = "win", ic = "🏆") { const o = document.getElementById('custom-popup'); const b = document.getElementById('popup-box'); document.getElementById('popup-title').innerText = t; document.getElementById('popup-text').innerHTML = tx; document.getElementById('popup-icon').innerText = ic; b.className = `custom-popup-box popup-${ty}`; document.getElementById('popup-title').style.color = ty==='win'?'var(--gold)':ty==='loss'?'var(--blood)':'var(--epic)'; o.classList.add('show'); }
 function closePopup() { document.getElementById('custom-popup').classList.remove('show'); }
 function toggleAuth(fId) { document.getElementById('login-form').classList.add('hidden'); document.getElementById('reg-form').classList.add('hidden'); document.getElementById(fId).classList.remove('hidden'); }
@@ -81,11 +72,7 @@ async function loadPlayerData() {
         playerChar = d.character; SKILLS_DB = d.skills_db; 
         document.getElementById('auth-screen').classList.add('hidden'); document.getElementById('class-screen').classList.add('hidden'); document.getElementById('battle-screen').classList.add('hidden'); document.getElementById('game-screen').classList.remove('hidden');
         renderInventoryAndCraft(); 
-        
-        document.getElementById('ui-name').innerText = playerChar.name; 
-        document.getElementById('ui-lvl').innerText = playerChar.level; 
-        document.getElementById('ui-exp').innerText = `${playerChar.exp || 0} / ${playerChar.level * 100}`;
-        
+        document.getElementById('ui-name').innerText = playerChar.name; document.getElementById('ui-lvl').innerText = playerChar.level; document.getElementById('ui-exp').innerText = `${playerChar.exp || 0} / ${playerChar.level * 100}`;
         document.getElementById('ui-gold').innerText = playerChar.gold; document.getElementById('ui-diamonds').innerText = playerChar.diamonds || 0; 
         document.getElementById('ui-hp').innerText = `${playerChar.hp} / ${playerChar.max_hp}`; document.getElementById('ui-hp-bar').style.width = Math.min(100, (playerChar.hp / playerChar.max_hp * 100)) + '%';
         document.getElementById('ui-avatar').style.backgroundImage = `url('${AVATARS[playerChar.class_name] || AVATARS['Воїн']}')`;
@@ -123,9 +110,7 @@ function renderSkillsTree() {
 }
 
 function renderInventoryAndCraft() {
-    let wAtk = 0; let aDef = 0; playerChar.crit_chance = 0.05; playerChar.vampire = 0; playerChar.poison = 0; playerChar.thorns = 0;
-    playerChar.dodge = 0.05; 
-
+    let wAtk = 0; let aDef = 0; playerChar.crit_chance = 0.05; playerChar.vampire = 0; playerChar.poison = 0; playerChar.thorns = 0; playerChar.dodge = 0.05; 
     let inv = playerChar.inventory || []; 
     let eqW = inv.find(i => i.id === playerChar.weapon); let eqA = inv.find(i => i.id === playerChar.armor);
     if(eqW) { wAtk = eqW.stat; if(eqW.extra?.crit_chance) playerChar.crit_chance += eqW.extra.crit_chance; if(eqW.extra?.vampire) playerChar.vampire += eqW.extra.vampire; if(eqW.extra?.poison) playerChar.poison += eqW.extra.poison; }
@@ -146,19 +131,13 @@ function renderInventoryAndCraft() {
             if(aPet.passives.includes('thorns')) playerChar.thorns += 0.10;
         }
     }
-    
-    playerChar.totalAtk = Math.floor(((playerChar.attack || 20) + wAtk) * pBuff); 
-    playerChar.totalDef = (playerChar.defense || 10) + aDef;
-
+    playerChar.totalAtk = Math.floor(((playerChar.attack || 20) + wAtk) * pBuff); playerChar.totalDef = (playerChar.defense || 10) + aDef;
     let fixedPS = playerChar.totalAtk * 5 + playerChar.totalDef * 5 + playerChar.max_hp + (playerChar.level * 20);
     document.getElementById('ui-ps').innerText = fixedPS;
 
     document.getElementById('stat-atk').innerText = playerChar.totalAtk; document.getElementById('stat-def').innerText = playerChar.totalDef; 
-    document.getElementById('stat-crit').innerText = Math.round(playerChar.crit_chance * 100) + '%';
-    document.getElementById('stat-dodge').innerText = Math.round(playerChar.dodge * 100) + '%';
-    document.getElementById('stat-vamp').innerText = Math.round(playerChar.vampire * 100) + '%';
-    document.getElementById('stat-psn').innerText = Math.round(playerChar.poison * 100) + '%';
-    document.getElementById('stat-thrn').innerText = Math.round(playerChar.thorns * 100) + '%';
+    document.getElementById('stat-crit').innerText = Math.round(playerChar.crit_chance * 100) + '%'; document.getElementById('stat-dodge').innerText = Math.round(playerChar.dodge * 100) + '%';
+    document.getElementById('stat-vamp').innerText = Math.round(playerChar.vampire * 100) + '%'; document.getElementById('stat-psn').innerText = Math.round(playerChar.poison * 100) + '%'; document.getElementById('stat-thrn').innerText = Math.round(playerChar.thorns * 100) + '%';
 
     document.getElementById('inv-weapon').innerHTML = eqW ? `<span style="color:${eqW.color};">${eqW.name}<br><small>+${eqW.stat} АТК</small></span>` : '<span style="color:#555;">Порожньо</span>';
     document.getElementById('inv-armor').innerHTML = eqA ? `<span style="color:${eqA.color};">${eqA.name}<br><small>+${eqA.stat} ЗАХ</small></span>` : '<span style="color:#555;">Порожньо</span>';
@@ -172,10 +151,8 @@ function renderInventoryAndCraft() {
     }).join('');
 }
 
-// ДОДАНО: СИСТЕМА ФІЛЬТРІВ КРАМНИЦІ
 function setFilterType(t) { currentFilterType = t; applyFilters(); }
 function setFilterRarity(r) { currentFilterRarity = r; applyFilters(); }
-
 function applyFilters() {
     document.querySelectorAll('.shop-card').forEach(card => {
         let matchType = (currentFilterType === 'all') || (card.dataset.type === currentFilterType);
@@ -191,9 +168,7 @@ function generateShop(category) {
         <div class="rng-item shop-card" data-type="eggs" data-rarity="all" style="border-left: 4px solid #a335ee; width: 300px;"><div><strong style="color:#a335ee; font-size:1.2rem;">🔮 Епічне Яйце</strong><br><span style="color:#aaa; font-size:0.8rem;">Шанс на Epic / Legendary</span></div><button onclick="buyEgg('epic')" class="btn-small bg-gold">Купити (5000 🪙)</button></div>
         <div class="rng-item shop-card" data-type="eggs" data-rarity="all" style="border-left: 4px solid #ff00ff; width: 300px;"><div><strong style="color:#ff00ff; font-size:1.2rem;">✨ Міфічне Яйце</strong><br><span style="color:#aaa; font-size:0.8rem;">Гарантований Leg або Mythic</span></div><button onclick="buyEgg('mythic')" class="btn-small bg-gold">Купити (25000 🪙)</button></div>
         `;
-        document.getElementById('shop-items-container').innerHTML = h;
-        applyFilters();
-        return;
+        document.getElementById('shop-items-container').innerHTML = h; applyFilters(); return;
     }
 
     const SHOP_NAMES = { weapon: ["Меч Новачка", "Кривавий Кинджал", "Посох Мага", "Сокира Варвара", "Лук Ельфів", "Ефірний Клинок", "Коса Жреця", "Молот Титанів", "Спис Долі", "Гримуар Хаосу", "Меч Гладіатора", "Кігті Тіні"], armor: ["Лляна Сорочка", "Шкіряна Броня", "Кольчуга Лицаря", "Сталевий Нагрудник", "Мантія Тіней", "Екзоскелет Безодні", "Плащ Асасина", "Щит Паладіна", "Ряса Монаха", "Кістяний Обладунок"] };
@@ -202,13 +177,12 @@ function generateShop(category) {
     tiers.sort(() => Math.random() - 0.5);
     tiers.forEach(t => {
         let name = SHOP_NAMES[category][Math.floor(Math.random() * SHOP_NAMES[category].length)];
-        // БАЛАНС: Стати у крамниці також занижено (х5 замість х15)
-        let stat = Math.floor(lvl * 5 * (t.r === 'Common'? 1 : t.r === 'Uncommon'? 1.2 : t.r === 'Rare'? 1.5 : t.r === 'Epic'? 2.2 : t.r === 'Legendary'? 3.5 : 5.0) + Math.random()*5 + 1);
+        // СИЛЬНО ЗРІЗАНО ГЕНЕРАЦІЮ СТАТІВ КРАМНИЦІ
+        let stat = Math.floor(lvl * 1.5 * (t.r === 'Common'? 1 : t.r === 'Uncommon'? 1.2 : t.r === 'Rare'? 1.5 : t.r === 'Epic'? 2.2 : t.r === 'Legendary'? 3.5 : 5.0) + Math.random()*5 + 1);
         let price = Math.floor(Math.random() * (t.p[1] - t.p[0]) + t.p[0]); let icon = category === 'weapon' ? '⚔️' : '🛡️';
         h += `<div class="rng-item shop-card" data-type="${category}" data-rarity="${t.r}" style="border-left: 4px solid ${t.c}; width: 300px;"><div><strong style="color:${t.c};">${icon} ${name}</strong><br><span style="font-size:0.85rem; color:#aaa;">+${stat} ${category==='weapon'?'АТК':'ЗАХ'} | ${t.r}</span></div><button onclick="buyShopItem('${icon} ${name}', '${category}', '${t.r}', ${stat}, ${price})" class="btn-small bg-gold">Купити (${price} 🪙)</button></div>`;
     });
-    document.getElementById('shop-items-container').innerHTML = h;
-    applyFilters();
+    document.getElementById('shop-items-container').innerHTML = h; applyFilters();
 }
 
 function renderGachaAndPets() {
@@ -216,50 +190,29 @@ function renderGachaAndPets() {
     document.getElementById('pet-list').innerHTML = p.length === 0 ? '<p style="color:#555;">Немає супутників.</p>' : p.map(pt => {
         let stg = pt.stage || 1;
         let p_html = (pt.passives||[]).map(psv => `<span style="background:${PET_PASSIVES_DB[psv].color}; color:#000; padding:2px 5px; border-radius:3px; font-size:0.7rem; font-weight:bold;">${PET_PASSIVES_DB[psv].name}</span>`).join(' ');
-        let maxP = stg >= 20 ? 2 : (stg >= 10 ? 1 : 0);
-        let canLearn = (pt.passives||[]).length < maxP;
-        
+        let maxP = stg >= 20 ? 2 : (stg >= 10 ? 1 : 0); let canLearn = (pt.passives||[]).length < maxP;
         return `<div class="shop-card" style="${playerChar.active_pet === pt.id ? 'border-color: #1eff00;' : `border-color: ${pt.color || '#555'};`} position:relative;">
             <div style="position:absolute; top:-10px; right:10px; background:${pt.color||'#aaa'}; color:#000; padding:2px 5px; border-radius:5px; font-size:0.7rem; font-weight:bold;">${pt.rarity || 'Common'}</div>
             <h3 style="color:${pt.color || 'var(--gold)'}; margin:5px 0;">${PET_IMAGES[pt.name] || '🥚'} ${pt.name}</h3>
             <p style="color:#aaa; font-size:0.85rem; margin-bottom:5px;">Рівень: ${stg} | EXP: ${pt.exp || 0}/${stg*100}</p>
             <div style="margin-bottom:10px;">${p_html}</div>
             ${canLearn ? `<button class="btn-small" style="background:#00ffff; color:#000; width:100%; margin-bottom:5px;" onclick="openPetSkillModal('${pt.id}')">🧬 Вивчити Навичку!</button>` : ''}
-            <div style="display:flex; gap:5px; margin-top:5px; width:100%;">
-                <button class="btn-small bg-gold" style="flex:1;" onclick="equipItem('${pt.id}', 'pet')">${playerChar.active_pet === pt.id ? 'АКТИВНИЙ' : 'ВИКЛИК'}</button>
-                <button class="btn-small" style="background:#ff8000; color:#fff;" onclick="feedPet('${pt.id}')">🍖 (200🪙)</button>
-            </div>
+            <div style="display:flex; gap:5px; margin-top:5px; width:100%;"><button class="btn-small bg-gold" style="flex:1;" onclick="equipItem('${pt.id}', 'pet')">${playerChar.active_pet === pt.id ? 'АКТИВНИЙ' : 'ВИКЛИК'}</button><button class="btn-small" style="background:#ff8000; color:#fff;" onclick="feedPet('${pt.id}')">🍖 (200🪙)</button></div>
         </div>`;
     }).join('');
 }
 
 let activePetForSkill = null;
 function openPetSkillModal(petId) {
-    activePetForSkill = petId;
-    let h = '';
-    Object.keys(PET_PASSIVES_DB).forEach(k => {
-        h += `<button class="btn-small" style="background:${PET_PASSIVES_DB[k].color}; color:#000; font-weight:bold; font-size:1.1rem; padding:10px;" onclick="learnPetPassive('${k}')">${PET_PASSIVES_DB[k].name}</button>`;
-    });
-    document.getElementById('pet-skill-options').innerHTML = h;
-    document.getElementById('pet-skill-modal').classList.remove('hidden');
+    activePetForSkill = petId; let h = '';
+    Object.keys(PET_PASSIVES_DB).forEach(k => { h += `<button class="btn-small" style="background:${PET_PASSIVES_DB[k].color}; color:#000; font-weight:bold; font-size:1.1rem; padding:10px;" onclick="learnPetPassive('${k}')">${PET_PASSIVES_DB[k].name}</button>`; });
+    document.getElementById('pet-skill-options').innerHTML = h; document.getElementById('pet-skill-modal').classList.remove('hidden');
 }
 function closePetSkillModal() { document.getElementById('pet-skill-modal').classList.add('hidden'); activePetForSkill = null; }
 
-async function learnPetPassive(passiveId) {
-    const r = await fetch('/api/learn_pet_passive', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ pet_id: activePetForSkill, passive: passiveId }) }); 
-    const d = await r.json(); 
-    if(r.ok) { closePetSkillModal(); showPopup("НАВИЧКУ ЗАСВОЄНО", d.message, "loot", "🧬"); loadPlayerData(); } 
-    else { closePetSkillModal(); showPopup("Помилка", d.message, "loss", "❌"); }
-}
-
-async function buyPremium(packType) {
-    const r = await fetch('/api/gem_shop', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ pack: packType }) });
-    const d = await r.json();
-    if(r.ok) { showPopup("ПРЕМІУМ", d.message, "loot", "💎"); loadPlayerData(); }
-    else { showPopup("Помилка", d.message, "loss", "❌"); }
-}
-
-async function buyEgg(tier) { const r = await fetch('/api/buy_egg', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ tier }) }); const d = await r.json(); if(r.ok) { showPopup("НОВИЙ СУПУТНИК!", `Ви придбали яйце. Зайдіть у вкладку 'Гача та Пети'!`, "loot", "🥚"); loadPlayerData(); } else showPopup("Помилка", d.message, "loss", "❌"); }
+async function learnPetPassive(passiveId) { const r = await fetch('/api/learn_pet_passive', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ pet_id: activePetForSkill, passive: passiveId }) }); const d = await r.json(); if(r.ok) { closePetSkillModal(); showPopup("НАВИЧКУ ЗАСВОЄНО", d.message, "loot", "🧬"); loadPlayerData(); } else { closePetSkillModal(); showPopup("Помилка", d.message, "loss", "❌"); } }
+async function buyPremium(packType) { const r = await fetch('/api/gem_shop', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ pack: packType }) }); const d = await r.json(); if(r.ok) { showPopup("ПРЕМІУМ", d.message, "loot", "💎"); loadPlayerData(); } else { showPopup("Помилка", d.message, "loss", "❌"); } }
+async function buyEgg(tier) { const r = await fetch('/api/buy_egg', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ tier }) }); const d = await r.json(); if(r.ok) { showPopup("НОВИЙ СУПУТНИК!", `Ви придбали яйце.`, "loot", "🥚"); loadPlayerData(); } else showPopup("Помилка", d.message, "loss", "❌"); }
 async function buyShopItem(name, type, rarity, stat, price) { const r = await fetch('/api/buy_shop_item', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ name, type, rarity, stat, price }) }); const d = await r.json(); if(r.ok) { showPopup("ПОКУПКА УСПІШНА", d.message, "loot", "🛒"); loadPlayerData(); } else showPopup("Помилка", d.message, "loss", "❌"); }
 async function sellRngItem(id) { const r = await fetch('/api/sell_rng', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ id }) }); const d = await r.json(); if(r.ok) { showPopup("ПРОДАНО", d.message, "loot", "🪙"); loadPlayerData(); } else { showPopup("Помилка", d.message, "loss", "❌"); } }
 async function buySkill(id) { const r = await fetch('/api/buy_skill', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('rpg_token')}` }, body: JSON.stringify({ id }) }); const d = await r.json(); if(r.ok) { showPopup("ГРИМУАР ОНОВЛЕНО", d.message, "loot", "📖"); loadPlayerData(); } else showPopup("Помилка", d.message, "loss", "❌"); }
@@ -273,42 +226,30 @@ async function openChest() { const r = await fetch('/api/open_chest', { method: 
 function startStorySequence(n, b) { 
     isSurvivalMode = false; playingNode = n; isBossNode = b; document.getElementById('story-overlay').classList.remove('hidden'); 
     if(b && STORY_DB[n]) { 
-        document.getElementById('story-name').innerText = STORY_DB[n].s; 
-        document.getElementById('story-text').innerText = STORY_DB[n].t; 
-        document.getElementById('story-name').style.color = "var(--blood)"; 
-        document.getElementById('story-avatar').style.backgroundImage = `url('${BOSS_IMG}')`; 
+        document.getElementById('story-name').innerText = STORY_DB[n].s; document.getElementById('story-text').innerText = STORY_DB[n].t; document.getElementById('story-name').style.color = "var(--blood)"; document.getElementById('story-avatar').style.backgroundImage = `url('${BOSS_IMG}')`; 
     } else { 
-        document.getElementById('story-name').innerText = "Провідник Еліас"; 
-        document.getElementById('story-text').innerText = ELIAS_LORE[(n-1) % ELIAS_LORE.length]; 
-        document.getElementById('story-name').style.color = "var(--gold)"; 
-        document.getElementById('story-avatar').style.backgroundImage = `url('https://images.unsplash.com/photo-1541604193435-22287d32c2c2?w=500')`; 
+        document.getElementById('story-name').innerText = "Провідник Еліас"; document.getElementById('story-text').innerText = ELIAS_LORE[(n-1) % ELIAS_LORE.length]; document.getElementById('story-name').style.color = "var(--gold)"; document.getElementById('story-avatar').style.backgroundImage = `url('https://images.unsplash.com/photo-1541604193435-22287d32c2c2?w=500')`; 
     }
 }
 function nextStoryLine() { document.getElementById('story-overlay').classList.add('hidden'); triggerBattle(playingNode, isBossNode); }
-
-function startSurvival() {
-    isSurvivalMode = true;
-    survivalWave = 1;
-    triggerBattle(survivalWave, false);
-}
+function startSurvival() { isSurvivalMode = true; survivalWave = 1; triggerBattle(survivalWave, false); }
 
 function triggerBattle(n, b) { 
     let scale = isSurvivalMode ? survivalWave : n;
-    let eHp = Math.floor(100 + (scale * 30) * (b ? 3.0 : 1)); 
-    let eAtk = Math.floor(10 + (scale * 5) * (b ? 1.5 : 1)); 
+    // ЗБІЛЬШЕНО ХП ВОРОГІВ, щоб вони не падали з однієї тички
+    let eHp = Math.floor(300 + (scale * 80) * (b ? 3.0 : 1)); 
+    let eAtk = Math.floor(15 + (scale * 10) * (b ? 1.5 : 1)); 
 
     currentEnemy = { 
         name: isSurvivalMode ? `Тінь Хвилі ${survivalWave}` : (b ? (STORY_DB[n] ? STORY_DB[n].s : "ЛОРД БЕЗОДНІ") : "ПОРОДЖЕННЯ ТІНІ"), 
         hp: eHp, maxHp: eHp, atk: eAtk, isBoss: b 
     }; 
-    setupArena(); 
-    logBattle(`⚔️ Бій ${isSurvivalMode ? 'на Виживання' : 'на Етапі ' + n} почався!`, "gold"); 
+    setupArena(); logBattle(`⚔️ Бій ${isSurvivalMode ? 'на Виживання' : 'на Етапі ' + n} почався!`, "gold"); 
 }
 
 function setupArena() {
     document.getElementById('game-screen').classList.add('hidden'); document.getElementById('battle-screen').classList.remove('hidden');
     document.getElementById('b-e-name').innerText = currentEnemy.name; document.getElementById('b-e-hp').style.width = '100%';
-    
     document.getElementById('b-p-hp-bar').style.width = '100%';
 
     document.getElementById('b-p-card').style.backgroundImage = `url('${AVATARS[playerChar.class_name] || AVATARS['Воїн']}')`; document.getElementById('enemy-card').style.backgroundImage = currentEnemy.isBoss ? `url('${BOSS_IMG}')` : "url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500')";
@@ -322,8 +263,9 @@ function setupArena() {
     let eqS = getCleanSkills(); skillCooldowns = {}; eqS.forEach(k => skillCooldowns[k] = 0); renderBattleSkills();
     if(battleTimer) clearInterval(battleTimer);
     
-    comboTracker = []; // Скидаємо комбо
+    comboTracker = []; enemyAttackCounter = 0; // Скидання
     
+    // ОСНОВНИЙ ЦИКЛ БОЮ
     battleTimer = setInterval(() => { 
         let changed = false; 
         Object.keys(skillCooldowns).forEach(k => { if(skillCooldowns[k] > 0) { skillCooldowns[k]--; changed = true; } }); 
@@ -334,17 +276,48 @@ function setupArena() {
             document.getElementById('b-e-hp').style.width = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp)*100) + '%';
             if(currentEnemy.hp <= 0) { clearInterval(battleTimer); finishBattle(true); return; }
         }
+
+        // НЕЗАЛЕЖНА АТАКА ВОРОГА (кожні 3 секунди)
+        enemyAttackCounter++;
+        if (enemyAttackCounter >= 3) {
+            enemyAttackCounter = 0;
+            performEnemyAttack();
+        }
+
         if(changed) renderBattleSkills(); 
     }, 1000);
 }
 
-function renderBattleSkills() {
-    let h = ''; let eqS = getCleanSkills(); let unlS = playerChar.unlocked_skills || {};
-    eqS.forEach(k => {
-        const s = SKILLS_DB[k]; if(!s) return; const cd = skillCooldowns[k] || 0; let lvl = unlS[k] || 1;
-        h += `<div class="skill-btn ${cd <= 0 ? '' : 'on-cd'}" onclick="useSkill('${k}', ${lvl})"><div class="skill-icon">${s.icon}</div><div class="skill-name">${s.name}</div>${cd > 0 ? `<div class="cd-overlay">${cd}s</div>` : ''}</div>`;
-    });
-    document.getElementById('battle-skills').innerHTML = h;
+// ВИДІЛЕНО В ОКРЕМУ ФУНКЦІЮ (не залежить від кліків гравця)
+function performEnemyAttack() {
+    if (!currentEnemy || currentEnemy.hp <= 0 || playerChar.hp <= 0) return;
+    
+    let isDodge = Math.random() < playerChar.dodge;
+    if(isDodge) { logBattle(`💨 Ухилення!`, "cyan"); spawnDamageText('b-p-card', "MISS", "miss"); } 
+    else { 
+        let dmgMult = 1.0; let atkName = "Ворог б'є"; let logColor = "red";
+        if(currentEnemy.isBoss) {
+            let rnd = Math.random();
+            if(rnd < 0.1) { dmgMult = 2.5; atkName = "🔥 БОСС КАСТУЄ СПЕЦІАЛЬНИЙ УДАР"; logColor = "purple"; screenShake(15); spawnDamageText('enemy-card', "SKILL", "crit"); }
+            else if(rnd < 0.25) { dmgMult = 1.5; atkName = "💥 БОСС КРИТУЄ"; logColor = "orange"; screenShake(10); }
+        }
+        
+        let rawDmg = currentEnemy.atk * dmgMult;
+        let eDmg = Math.max(1, Math.floor(rawDmg * (100 / (100 + playerChar.totalDef)))); 
+        
+        playerChar.hp -= eDmg; animateElement('enemy-card', 'attack-bounce-reverse'); spawnDamageText('b-p-card', eDmg, "enemy"); 
+        
+        document.getElementById('ui-hp-bar').style.width = Math.max(0, (playerChar.hp / playerChar.max_hp)*100) + '%'; 
+        document.getElementById('b-p-hp-bar').style.width = Math.max(0, (playerChar.hp / playerChar.max_hp)*100) + '%';
+        screenShake(5); logBattle(`${atkName}: -${eDmg} HP`, logColor); 
+        
+        if(playerChar.thorns > 0) {
+            let thrnDmg = Math.floor(eDmg * playerChar.thorns);
+            currentEnemy.hp -= thrnDmg; spawnDamageText('enemy-card', thrnDmg, "thrn"); logBattle(`Шипи: ворог отримує ${thrnDmg}`, "purple");
+            document.getElementById('b-e-hp').style.width = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp)*100) + '%';
+        }
+    }
+    if (playerChar.hp <= 0) { clearInterval(battleTimer); finishBattle(false); }
 }
 
 async function useSkill(k, lvl) {
@@ -352,15 +325,15 @@ async function useSkill(k, lvl) {
     const s = SKILLS_DB[k]; animateElement('b-p-card', 'attack-bounce');
     if(document.getElementById('b-p-pet').style.display !== 'none') animateElement('b-p-pet', 'attack-bounce');
 
-    // ЛОГІКА КОМБО (3 скіли за 2.5 сек)
+    // ЗМЕНШЕНЕ КОМБО (x1.5 замість x3.0)
     let now = Date.now();
     comboTracker.push(now);
     comboTracker = comboTracker.filter(t => now - t < 2500);
     let comboMult = 1.0;
     if(comboTracker.length >= 3) {
-        comboMult = 3.0; // Х3 шкода від комбо
+        comboMult = 1.5; 
         comboTracker = [];
-        spawnDamageText('b-p-card', "🔥 КОМБО x3!", "crit");
+        spawnDamageText('b-p-card', "🔥 КОМБО x1.5!", "crit");
         logBattle(`🔥 СУПЕР КОМБО СПРАЦЮВАЛО!`, "orange");
     }
 
@@ -381,40 +354,6 @@ async function useSkill(k, lvl) {
     
     if(s.cd > 0) { skillCooldowns[k] = s.cd; renderBattleSkills(); }
     if (currentEnemy.hp <= 0) { clearInterval(battleTimer); finishBattle(true); return; }
-
-    setTimeout(() => {
-        if(currentEnemy.hp <= 0) return;
-        
-        let isDodge = Math.random() < playerChar.dodge;
-        if(isDodge) { logBattle(`💨 Ухилення!`, "cyan"); spawnDamageText('b-p-card', "MISS", "miss"); } 
-        else { 
-            // МЕХАНІКА БОСІВ + НОРМАЛЬНИЙ БАЛАНС БРОНІ
-            let dmgMult = 1.0; let atkName = "Ворог б'є"; let logColor = "red";
-            if(currentEnemy.isBoss) {
-                let rnd = Math.random();
-                if(rnd < 0.1) { dmgMult = 2.5; atkName = "🔥 БОСС КАСТУЄ СПЕЦІАЛЬНИЙ УДАР"; logColor = "purple"; screenShake(15); spawnDamageText('enemy-card', "SKILL", "crit"); }
-                else if(rnd < 0.25) { dmgMult = 1.5; atkName = "💥 БОСС КРИТУЄ"; logColor = "orange"; screenShake(10); }
-            }
-            
-            // RPG Формула: Броня зменшує шкоду у відсотках, а не ріже до 1 ХП
-            let rawDmg = currentEnemy.atk * dmgMult;
-            let eDmg = Math.max(1, Math.floor(rawDmg * (100 / (100 + playerChar.totalDef)))); 
-            
-            playerChar.hp -= eDmg; animateElement('enemy-card', 'attack-bounce-reverse'); spawnDamageText('b-p-card', eDmg, "enemy"); 
-            
-            document.getElementById('ui-hp-bar').style.width = Math.max(0, (playerChar.hp / playerChar.max_hp)*100) + '%'; 
-            document.getElementById('b-p-hp-bar').style.width = Math.max(0, (playerChar.hp / playerChar.max_hp)*100) + '%';
-            screenShake(5); logBattle(`${atkName}: -${eDmg} HP`, logColor); 
-            
-            if(playerChar.thorns > 0) {
-                let thrnDmg = Math.floor(eDmg * playerChar.thorns);
-                currentEnemy.hp -= thrnDmg; spawnDamageText('enemy-card', thrnDmg, "thrn"); logBattle(`Шипи: ворог отримує ${thrnDmg}`, "purple");
-                document.getElementById('b-e-hp').style.width = Math.max(0, (currentEnemy.hp / currentEnemy.maxHp)*100) + '%';
-            }
-        }
-        if (playerChar.hp <= 0) { clearInterval(battleTimer); finishBattle(false); }
-        if (currentEnemy.hp <= 0) { clearInterval(battleTimer); finishBattle(true); return; }
-    }, 1000);
 }
 
 async function finishBattle(w) {
