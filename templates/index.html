@@ -84,8 +84,18 @@
                 <button class="tab-btn" onclick="showTab('achievements')" style="color:var(--gold);">🏆 ДОСЯГНЕННЯ</button>
             </div>
             <div class="content-area">
-                <div id="tab-world-map" class="tab-panel"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;"><h2 style="margin: 0; font-size: 2rem;">📜 ГОЛОВНА ІСТОРІЯ</h2><span style="color: #888; font-family: 'Cinzel'; font-size: 1.2rem;">Етап: <span id="map-progress" style="color: var(--gold); font-weight:bold;">1 / 50</span></span></div><div id="map-container" style="display:flex; flex-wrap:wrap; gap:15px; justify-content:flex-start;"></div></div>
-                <div id="tab-survival" class="tab-panel hidden"><h2 style="font-size: 2rem; color:#00ffff;">Арена Виживання</h2><div style="background:#111; border:2px solid #00ffff; padding:30px; border-radius:10px; text-align:center; margin-top:30px;"><h3 style="color:#fff; font-size:1.5rem;">Ваш рекорд: Хвиля <span id="survival-record" style="color:var(--gold);">1</span></h3><button class="rpg-btn" style="background:linear-gradient(to bottom, #00ffff, #008888); color:#000; width:300px; font-size:1.5rem;" onclick="startSurvival()">⚔️ ПОЧАТИ ВИЖИВАННЯ</button></div></div>
+                <div id="tab-world-map" class="tab-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;"><h2 style="margin: 0; font-size: 2rem;">📜 ГОЛОВНА ІСТОРІЯ</h2><span style="color: #888; font-family: 'Cinzel'; font-size: 1.2rem;">Етап: <span id="map-progress" style="color: var(--gold); font-weight:bold;">1 / 50</span></span></div>
+                    <div id="map-container" style="display:flex; flex-wrap:wrap; gap:15px; justify-content:flex-start;"></div>
+                </div>
+                
+                <div id="tab-survival" class="tab-panel hidden">
+                    <h2 style="font-size: 2rem; color:#00ffff;">Арена Виживання</h2>
+                    <div style="background:#111; border:2px solid #00ffff; padding:30px; border-radius:10px; text-align:center; margin-top:30px;">
+                        <h3 style="color:#fff; font-size:1.5rem;">Ваш рекорд: Хвиля <span id="survival-record" style="color:var(--gold);">1</span></h3>
+                        <button class="rpg-btn" style="background:linear-gradient(to bottom, #00ffff, #008888); color:#000; width:300px; font-size:1.5rem;" onclick="startSurvival()">⚔️ ПОЧАТИ ВИЖИВАННЯ</button>
+                    </div>
+                </div>
                 
                 <div id="tab-achievements" class="tab-panel hidden">
                     <h2 style="font-size: 2.5rem; color:var(--gold); margin-bottom: 10px;">🏆 ЗАЛ СЛАВИ</h2>
@@ -94,11 +104,22 @@
                 </div>
                 
                 <div id="tab-shop" class="tab-panel hidden">
-                    <div style="display:flex; gap:15px; margin-bottom:30px; border-bottom:1px solid #333; padding-bottom:20px;">
-                        <button class="rpg-btn" style="width:200px; margin:0;" onclick="generateShop('weapon')">⚔️ ЗБРОЯ ТА МАГІЯ</button>
-                        <button class="rpg-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #555, #222); color:#fff;" onclick="generateShop('armor')">🛡️ ВАЖКА БРОНЯ</button>
-                        <button class="rpg-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #1eff00, #004400); color:#fff; border-color:#1eff00;" onclick="generateShop('eggs')">🥚 ЯЙЦЯ ПЕТІВ</button>
+                    <h2 style="font-size: 2rem; color:#ffcc00; margin-bottom: 15px;">💰 КРАМНИЦЯ</h2>
+                    <!-- Вкладки крамниці -->
+                    <div class="shop-tabs" style="display:flex; gap:15px; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:15px;">
+                        <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0;" data-cat="weapon" onclick="generateShop('weapon')">⚔️ ЗБРОЯ ТА МАГІЯ</button>
+                        <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #555, #222); color:#fff;" data-cat="armor" onclick="generateShop('armor')">🛡️ ВАЖКА БРОНЯ</button>
+                        <button class="rpg-btn shop-tab-btn" style="width:200px; margin:0; background:linear-gradient(to bottom, #1eff00, #004400); color:#000; border-color:#1eff00;" data-cat="eggs" onclick="generateShop('eggs')">🥚 ЯЙЦЯ ПЕТІВ</button>
                     </div>
+                    
+                    <!-- Додано: Кнопки швидких фільтрів (якщо підключено в JS) -->
+                    <div class="shop-quick-filters" style="margin-bottom:20px; display:flex; gap:10px; align-items:center;">
+                        <span style="color:#aaa; font-weight:bold;">Фільтр: </span>
+                        <button class="btn-small bg-dark" style="border:1px solid #555; color:#fff;" onclick="filterShopUI('all')">Всі</button>
+                        <button class="btn-small bg-dark" style="border:1px solid #555; color:#fff;" onclick="filterShopUI('weapon')">Зброя</button>
+                        <button class="btn-small bg-dark" style="border:1px solid #555; color:#fff;" onclick="filterShopUI('armor')">Броня</button>
+                    </div>
+
                     <div id="shop-items-container" style="display:flex; flex-wrap:wrap; gap:15px;"></div>
                 </div>
 
