@@ -1,6 +1,6 @@
 let playerChar = null; let currentEnemy = null; let playingNode = 1; let isBossNode = false; let isSurvivalMode = false; let survivalWave = 1; 
 let skillCooldowns = {}; let pendingBattle = null; let currentStoryNode = 1; let isBossStory = false; let battleTimer = null; let SKILLS_DB = {};
-let comboTracker = []; let enemyAttackCounter = 0; // Для незалежних атак
+let comboTracker = []; let enemyAttackCounter = 0;
 
 const PET_IMAGES = {
     "Яйце": "🥚", "Малий Демон": "🦇", "Демон-Вбивця": "🐺", "Вищий Демон": "👹", "Лорд Безодні": "👿",
@@ -54,7 +54,17 @@ const PET_PASSIVES_DB = {
 };
 
 let currentFilterType = 'all'; let currentFilterRarity = 'all';
-function getCleanSkills() { let r = playerChar.equipped_skills; if(!r) return ["attack"]; if(typeof r === 'string') return r.replace(/[{}"'[\]]/g, '').split(',').map(s => s.trim()).filter(s => SKILLS_DB[s]); if(Array.isArray(r)) return r.filter(s => SKILLS_DB[s]); return ["attack"]; }
+
+// ДОДАНО НАДІЙНИЙ ЗАХИСТ ВІД ЗНИКНЕННЯ КНОПОК
+function getCleanSkills() { 
+    let r = playerChar.equipped_skills; 
+    let arr = [];
+    if(typeof r === 'string') arr = r.replace(/[{}"'[\]]/g, '').split(',').map(s => s.trim());
+    else if(Array.isArray(r)) arr = r;
+    arr = arr.filter(s => SKILLS_DB[s]);
+    return arr.length > 0 ? arr : ["attack"]; 
+}
+
 function showPopup(t, tx, ty = "win", ic = "🏆") { const o = document.getElementById('custom-popup'); const b = document.getElementById('popup-box'); document.getElementById('popup-title').innerText = t; document.getElementById('popup-text').innerHTML = tx; document.getElementById('popup-icon').innerText = ic; b.className = `custom-popup-box popup-${ty}`; document.getElementById('popup-title').style.color = ty==='win'?'var(--gold)':ty==='loss'?'var(--blood)':'var(--epic)'; o.classList.add('show'); }
 function closePopup() { document.getElementById('custom-popup').classList.remove('show'); }
 function toggleAuth(fId) { document.getElementById('login-form').classList.add('hidden'); document.getElementById('reg-form').classList.add('hidden'); document.getElementById(fId).classList.remove('hidden'); }
@@ -177,7 +187,6 @@ function generateShop(category) {
     tiers.sort(() => Math.random() - 0.5);
     tiers.forEach(t => {
         let name = SHOP_NAMES[category][Math.floor(Math.random() * SHOP_NAMES[category].length)];
-        // СИЛЬНО ЗРІЗАНО ГЕНЕРАЦІЮ СТАТІВ КРАМНИЦІ
         let stat = Math.floor(lvl * 1.5 * (t.r === 'Common'? 1 : t.r === 'Uncommon'? 1.2 : t.r === 'Rare'? 1.5 : t.r === 'Epic'? 2.2 : t.r === 'Legendary'? 3.5 : 5.0) + Math.random()*5 + 1);
         let price = Math.floor(Math.random() * (t.p[1] - t.p[0]) + t.p[0]); let icon = category === 'weapon' ? '⚔️' : '🛡️';
         h += `<div class="rng-item shop-card" data-type="${category}" data-rarity="${t.r}" style="border-left: 4px solid ${t.c}; width: 300px;"><div><strong style="color:${t.c};">${icon} ${name}</strong><br><span style="font-size:0.85rem; color:#aaa;">+${stat} ${category==='weapon'?'АТК':'ЗАХ'} | ${t.r}</span></div><button onclick="buyShopItem('${icon} ${name}', '${category}', '${t.r}', ${stat}, ${price})" class="btn-small bg-gold">Купити (${price} 🪙)</button></div>`;
@@ -234,9 +243,18 @@ function startStorySequence(n, b) {
 function nextStoryLine() { document.getElementById('story-overlay').classList.add('hidden'); triggerBattle(playingNode, isBossNode); }
 function startSurvival() { isSurvivalMode = true; survivalWave = 1; triggerBattle(survivalWave, false); }
 
+// ВОНА ТУТ! ОСЬ ЦЯ ФУНКЦІЯ ВИПАЛА В МИНУЛИЙ РАЗ І ВСЕ ЗЛАМАЛА
+function renderBattleSkills() {
+    let h = ''; let eqS = getCleanSkills(); let unlS = playerChar.unlocked_skills || {};
+    eqS.forEach(k => {
+        const s = SKILLS_DB[k]; if(!s) return; const cd = skillCooldowns[k] || 0; let lvl = unlS[k] || 1;
+        h += `<div class="skill-btn ${cd <= 0 ? '' : 'on-cd'}" onclick="useSkill('${k}', ${lvl})"><div class="skill-icon">${s.icon}</div><div class="skill-name">${s.name}</div>${cd > 0 ? `<div class="cd-overlay">${cd}s</div>` : ''}</div>`;
+    });
+    document.getElementById('battle-skills').innerHTML = h;
+}
+
 function triggerBattle(n, b) { 
     let scale = isSurvivalMode ? survivalWave : n;
-    // ЗБІЛЬШЕНО ХП ВОРОГІВ, щоб вони не падали з однієї тички
     let eHp = Math.floor(300 + (scale * 80) * (b ? 3.0 : 1)); 
     let eAtk = Math.floor(15 + (scale * 10) * (b ? 1.5 : 1)); 
 
@@ -260,12 +278,13 @@ function setupArena() {
     if(aPet) { petEl.innerText = PET_IMAGES[aPet.name] || '🥚'; petEl.style.display = 'block'; } 
     else { petEl.style.display = 'none'; }
 
-    let eqS = getCleanSkills(); skillCooldowns = {}; eqS.forEach(k => skillCooldowns[k] = 0); renderBattleSkills();
+    let eqS = getCleanSkills(); skillCooldowns = {}; eqS.forEach(k => skillCooldowns[k] = 0); 
+    
+    renderBattleSkills(); // Тепер вона точно викличеться і все намалює
+    
     if(battleTimer) clearInterval(battleTimer);
+    comboTracker = []; enemyAttackCounter = 0; 
     
-    comboTracker = []; enemyAttackCounter = 0; // Скидання
-    
-    // ОСНОВНИЙ ЦИКЛ БОЮ
     battleTimer = setInterval(() => { 
         let changed = false; 
         Object.keys(skillCooldowns).forEach(k => { if(skillCooldowns[k] > 0) { skillCooldowns[k]--; changed = true; } }); 
@@ -277,7 +296,6 @@ function setupArena() {
             if(currentEnemy.hp <= 0) { clearInterval(battleTimer); finishBattle(true); return; }
         }
 
-        // НЕЗАЛЕЖНА АТАКА ВОРОГА (кожні 3 секунди)
         enemyAttackCounter++;
         if (enemyAttackCounter >= 3) {
             enemyAttackCounter = 0;
@@ -288,10 +306,8 @@ function setupArena() {
     }, 1000);
 }
 
-// ВИДІЛЕНО В ОКРЕМУ ФУНКЦІЮ (не залежить від кліків гравця)
 function performEnemyAttack() {
     if (!currentEnemy || currentEnemy.hp <= 0 || playerChar.hp <= 0) return;
-    
     let isDodge = Math.random() < playerChar.dodge;
     if(isDodge) { logBattle(`💨 Ухилення!`, "cyan"); spawnDamageText('b-p-card', "MISS", "miss"); } 
     else { 
@@ -301,7 +317,6 @@ function performEnemyAttack() {
             if(rnd < 0.1) { dmgMult = 2.5; atkName = "🔥 БОСС КАСТУЄ СПЕЦІАЛЬНИЙ УДАР"; logColor = "purple"; screenShake(15); spawnDamageText('enemy-card', "SKILL", "crit"); }
             else if(rnd < 0.25) { dmgMult = 1.5; atkName = "💥 БОСС КРИТУЄ"; logColor = "orange"; screenShake(10); }
         }
-        
         let rawDmg = currentEnemy.atk * dmgMult;
         let eDmg = Math.max(1, Math.floor(rawDmg * (100 / (100 + playerChar.totalDef)))); 
         
@@ -325,7 +340,6 @@ async function useSkill(k, lvl) {
     const s = SKILLS_DB[k]; animateElement('b-p-card', 'attack-bounce');
     if(document.getElementById('b-p-pet').style.display !== 'none') animateElement('b-p-pet', 'attack-bounce');
 
-    // ЗМЕНШЕНЕ КОМБО (x1.5 замість x3.0)
     let now = Date.now();
     comboTracker.push(now);
     comboTracker = comboTracker.filter(t => now - t < 2500);
