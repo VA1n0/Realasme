@@ -12,10 +12,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 template_dir = os.path.join(BASE_DIR, 'templates')
 static_dir = os.path.join(BASE_DIR, 'static')
 
-app = Flask(__name__, 
-            template_folder=template_dir, 
-            static_folder=static_dir)
-
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 app.config['JWT_SECRET_KEY'] = os.environ.get("JWT_SECRET_KEY", "super-secret-rpg-key")
 jwt = JWTManager(app)
 
@@ -29,10 +26,7 @@ RARITIES = {
 }
 PREFIXES = ["Проклятий", "Священний", "Забутий", "Кривавий", "Ефірний", "Астральний", "Тіньовий", "Отрутний", "Шипований"]
 SUFFIXES = ["Вогню", "Льоду", "Безодні", "Вампіризму", "Тіней", "Руйнування", "Смерті", "Змії", "Болю"]
-BASES = {
-    "weapon": ["Меч", "Посох", "Кинджал", "Лук", "Коса", "Гримуар", "Молот", "Спис"],
-    "armor": ["Нагрудник", "Мантія", "Куртка", "Броня", "Екзоскелет", "Плащ", "Щит"]
-}
+BASES = {"weapon": ["Меч", "Посох", "Кинджал", "Лук", "Коса", "Гримуар", "Молот", "Спис"], "armor": ["Нагрудник", "Мантія", "Куртка", "Броня", "Екзоскелет", "Плащ", "Щит"]}
 
 PETS_DB = {
     "Демон": {"stages": ["Яйце", "Малий Демон", "Демон-Вбивця", "Вищий Демон", "Лорд Безодні"], "buff": "vampire"}, 
@@ -56,8 +50,7 @@ SKILLS_DB = {
 }
 
 def generate_rng_item(level, item_type="weapon", force_rarity=None):
-    roll = random.random()
-    rarity = force_rarity or "Common"
+    roll = random.random(); rarity = force_rarity or "Common"
     if not force_rarity:
         for r, data in RARITIES.items():
             if roll < data["chance"]: rarity = r; break
@@ -65,7 +58,6 @@ def generate_rng_item(level, item_type="weapon", force_rarity=None):
     
     icon = random.choice(["🗡️", "🪓", "⚔️", "🔥", "🪄"]) if item_type == "weapon" else random.choice(["🛡️", "👘", "🪖", "🧥"])
     name = f"{icon} {random.choice(PREFIXES)} {random.choice(BASES[item_type])} {random.choice(SUFFIXES)}"
-    
     extra = {}
     if rarity in ["Uncommon", "Rare", "Epic", "Legendary", "Mythic"]:
         if random.random() > 0.4: extra["crit_chance"] = round(random.uniform(0.05, 0.25), 2)
@@ -73,13 +65,9 @@ def generate_rng_item(level, item_type="weapon", force_rarity=None):
         if "Отрутний" in name or "Змії" in name: extra["poison"] = round(random.uniform(0.02, 0.10), 2)
         if item_type == "armor" and ("Шипований" in name or "Болю" in name): extra["thorns"] = round(random.uniform(0.1, 0.4), 2)
 
-    # БАЛАНС: Стати зменшено у 3 рази для плавнішої гри
-    base_stat = int(level * 5 * RARITIES[rarity]["mult"] + random.randint(1, 5))
-    
-    return {
-        "id": f"item_{random.randint(10000,999999)}", "name": name, "type": item_type, "rarity": rarity, 
-        "stat": base_stat, "color": RARITIES[rarity]["color"], "extra": extra, "upgrade_level": 0
-    }
+    # Зменшено стати ще більше для балансу
+    base_stat = int(level * 2 * RARITIES[rarity]["mult"] + random.randint(1, 5))
+    return {"id": f"item_{random.randint(10000,999999)}", "name": name, "type": item_type, "rarity": rarity, "stat": base_stat, "color": RARITIES[rarity]["color"], "extra": extra, "upgrade_level": 0}
 
 def get_egg_rarity(tier):
     roll = random.random()
@@ -104,7 +92,7 @@ def register():
                 supabase.table('users').insert(insert_data).execute()
             else: raise insert_e
         return jsonify({"status": "success", "token": create_access_token(identity=data.get('email'))}), 201
-    except Exception as e: return jsonify({"status": "error", "message": "Помилка реєстрації! Нік/Пошта зайняті."}), 400
+    except Exception as e: return jsonify({"status": "error", "message": "Помилка реєстрації!"}), 400
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -112,10 +100,8 @@ def login():
     try:
         res = supabase.table('users').select('*').eq('email', data.get('email')).execute()
         if not res.data or len(res.data) == 0: return jsonify({"status": "error", "message": "Гравця не знайдено!"}), 404
-        user = res.data[0]
-        saved_hash = user.get('password_hash') or user.get('password')
-        if check_password_hash(saved_hash, data.get('password')):
-            return jsonify({"status": "success", "token": create_access_token(identity=data.get('email')), "username": user['username']}), 200
+        user = res.data[0]; saved_hash = user.get('password_hash') or user.get('password')
+        if check_password_hash(saved_hash, data.get('password')): return jsonify({"status": "success", "token": create_access_token(identity=data.get('email')), "username": user['username']}), 200
         return jsonify({"status": "error", "message": "Невірний пароль!"}), 401
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -151,11 +137,8 @@ def buy_shop_item():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         if char['gold'] < data['price']: return jsonify({"status": "error", "message": "Недостатньо золота!"}), 400
-        
         new_item = {"id": f"item_{random.randint(100000,999999)}", "name": data['name'], "type": data['type'], "rarity": data['rarity'], "stat": data['stat'], "color": RARITIES.get(data['rarity'], {}).get("color", "#fff"), "extra": data.get('extra', {}), "upgrade_level": 0}
-        inv = char.get('inventory', [])
-        inv.append(new_item)
-        
+        inv = char.get('inventory', []); inv.append(new_item)
         update_data = {"gold": char['gold'] - data['price'], "inventory": inv}
         if data.get('equip_now'): update_data[data['type']] = new_item['id']
         supabase.table('characters').update(update_data).eq('id', char['id']).execute()
@@ -169,13 +152,11 @@ def sell_rng():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         inv = char.get('inventory', [])
-        
         if request.json['id'] in [char.get('weapon'), char.get('armor')]: return jsonify({"status": "error", "message": "Зніміть предмет перед продажем!"}), 400
         item = next((i for i in inv if i.get('id') == request.json['id']), None)
         if not item: return jsonify({"status": "error", "message": "Не знайдено!"}), 400
-            
         inv.remove(item)
-        prices = {"Common": 25, "Uncommon": 75, "Rare": 200, "Epic": 600, "Legendary": 1500, "Mythic": 5000}
+        prices = {"Common": 15, "Uncommon": 45, "Rare": 120, "Epic": 400, "Legendary": 1000, "Mythic": 3000}
         earned = prices.get(item.get('rarity'), 10)
         supabase.table('characters').update({"gold": char['gold'] + earned, "inventory": inv}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "message": f"Отримано {earned} 🪙!"}), 200
@@ -187,17 +168,15 @@ def buy_skill():
     try:
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
-        skill_id = request.json.get('id')
-        s_db = SKILLS_DB.get(skill_id)
+        skill_id = request.json.get('id'); s_db = SKILLS_DB.get(skill_id)
         if not s_db: return jsonify({"status": "error", "message": "Навичку не знайдено!"}), 400
-            
         unlocked = char.get('unlocked_skills', {})
         if skill_id in unlocked:
             cost = s_db['cost'] * (unlocked[skill_id] + 1)
             if char['gold'] < cost: return jsonify({"status": "error", "message": f"Потрібно {cost} 🪙"}), 400
             unlocked[skill_id] += 1
             supabase.table('characters').update({"gold": char['gold'] - cost, "unlocked_skills": unlocked}).eq('id', char['id']).execute()
-            return jsonify({"status": "success", "message": f"Навичку прокачано до {unlocked[skill_id]} рівня!"}), 200
+            return jsonify({"status": "success", "message": f"Навичку прокачано!"}), 200
         else:
             if char['level'] < s_db['req_lvl']: return jsonify({"status": "error", "message": f"Потрібен {s_db['req_lvl']} рівень!"}), 400
             if char['gold'] < s_db['cost']: return jsonify({"status": "error", "message": f"Потрібно {s_db['cost']} 🪙"}), 400
@@ -213,22 +192,18 @@ def equip_item():
     try:
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
-        update_data = {}
-        msg = "Екіпіровано!"
-        
+        update_data = {}; msg = "Екіпіровано!"
         if data['type'] in ['weapon', 'armor']: update_data[data['type']] = data['id']
         elif data['type'] == 'pet': update_data['active_pet'] = data['id']; msg = "Супутника викликано!"
         elif data['type'] == 'skill':
             skills = char.get('equipped_skills', [])
             if isinstance(skills, str): skills = [s.strip(r' "{}\'[]') for s in skills.split(',')] if skills not in ['{}', ''] else []
             skills = [s for s in skills if s in SKILLS_DB]
-            
             if data['id'] in skills: skills.remove(data['id']); msg = "Навичку знято!"
             else:
                 if len(skills) >= 4: return jsonify({"status": "error", "message": "Максимум 4 навички!"}), 400
                 skills.append(data['id']); msg = "Навичку додано в Гримуар!"
             update_data['equipped_skills'] = skills
-            
         supabase.table('characters').update(update_data).eq('id', char['id']).execute()
         return jsonify({"status": "success", "message": msg}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
@@ -240,17 +215,12 @@ def buy_egg():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         egg_tier = request.json.get('tier')
-        prices = {'basic': 1000, 'epic': 5000, 'mythic': 25000}
-        cost = prices.get(egg_tier, 1000)
-        
+        prices = {'basic': 1000, 'epic': 5000, 'mythic': 25000}; cost = prices.get(egg_tier, 1000)
         if char['gold'] < cost: return jsonify({"status": "error", "message": f"Потрібно {cost} 🪙"}), 400
         
-        rarity = get_egg_rarity(egg_tier)
-        pet_type = random.choice(list(PETS_DB.keys()))
+        rarity = get_egg_rarity(egg_tier); pet_type = random.choice(list(PETS_DB.keys()))
         new_pet = {"id": f"pet_{random.randint(10000,99999)}", "type": pet_type, "name": f"Яйце ({pet_type})", "rarity": rarity, "color": RARITIES.get(rarity, {}).get("color", "#fff"), "stage": 1, "exp": 0, "buff": PETS_DB[pet_type]["buff"], "passives": []}
-        
-        pets = char.get('pets', [])
-        pets.append(new_pet)
+        pets = char.get('pets', []); pets.append(new_pet)
         supabase.table('characters').update({"gold": char['gold'] - cost, "pets": pets}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "pet": new_pet}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
@@ -261,18 +231,13 @@ def feed_pet():
     try:
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
-        pet_id = request.json.get('id')
-        pets = char.get('pets', [])
+        pet_id = request.json.get('id'); pets = char.get('pets', [])
         pet_idx = next((i for i, p in enumerate(pets) if p['id'] == pet_id), None)
-        
         if pet_idx is None: return jsonify({"status": "error", "message": "Пета не знайдено!"}), 400
-        if char['gold'] < 200: return jsonify({"status": "error", "message": "Годування коштує 200 🪙"}), 400
+        if char['gold'] < 200: return jsonify({"status": "error", "message": "Потрібно 200 🪙"}), 400
         
         pets[pet_idx]['exp'] = pets[pet_idx].get('exp', 0) + random.randint(40, 80)
-        stg = pets[pet_idx].get('stage', 1)
-        lvl_req = stg * 100
-        msg = "Пет поїв і отримав EXP!"
-        
+        stg = pets[pet_idx].get('stage', 1); lvl_req = stg * 100; msg = "Пет поїв!"
         if pets[pet_idx]['exp'] >= lvl_req:
             stg += 1; pets[pet_idx]['stage'] = stg; pets[pet_idx]['exp'] = 0
             stages = PETS_DB[pets[pet_idx]['type']]['stages']
@@ -280,7 +245,7 @@ def feed_pet():
             elif stg >= 15 and len(stages) > 3: pets[pet_idx]['name'] = stages[3]
             elif stg >= 10 and len(stages) > 2: pets[pet_idx]['name'] = stages[2]
             elif stg >= 5 and len(stages) > 1: pets[pet_idx]['name'] = stages[1]
-            msg = f"🌟 Ваш пет підвищив рівень до {stg}!"
+            msg = f"🌟 Пет досяг рівня {stg}!"
 
         supabase.table('characters').update({"gold": char['gold'] - 200, "pets": pets}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "message": msg}), 200
@@ -293,15 +258,12 @@ def open_chest():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         gold = char['gold']; chests = char.get('chests', 0)
-        
         if chests <= 0:
-            if gold < 500: return jsonify({"status": "error", "message": "Немає скринь або золота!"}), 400
+            if gold < 500: return jsonify({"status": "error", "message": "Немає скринь!"}), 400
             gold -= 500
         else: chests -= 1
-            
         new_item = generate_rng_item(char['level'], random.choice(["weapon", "armor"]))
-        inv = char.get('inventory', [])
-        inv.append(new_item)
+        inv = char.get('inventory', []); inv.append(new_item)
         supabase.table('characters').update({"chests": chests, "gold": gold, "inventory": inv}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "item": new_item}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
@@ -314,19 +276,20 @@ def win_battle():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         
-        exp_gain = 100 if is_boss else 40
+        exp_gain = 100 if is_boss else 25
         new_exp = char.get('exp', 0) + exp_gain; new_lvl = char.get('level', 1); new_max_hp = char.get('max_hp', 200)
         
         if new_exp >= new_lvl * 100:
             new_lvl += 1; new_exp = new_exp - ((new_lvl - 1) * 100); new_max_hp += 20
             
-        gold_reward = (random.randint(500, 1000) + (node * 100)) if is_boss else (random.randint(200, 500) + (node * 20))
+        # СИЛЬНО ЗМЕНШЕНА НАГОРОДА ЗА ЗВИЧАЙНИХ ВОРОГІВ
+        gold_reward = (random.randint(500, 1000) + (node * 50)) if is_boss else (random.randint(40, 80) + (node * 5))
         diamonds_gained = 0
         if is_boss and random.random() < 0.5: diamonds_gained = random.randint(5, 15)
-        elif random.random() < 0.1: diamonds_gained = random.randint(1, 3)
+        elif random.random() < 0.05: diamonds_gained = random.randint(1, 2)
 
         inv = char.get('inventory', []); dropped_items = []
-        if random.random() < (1.0 if is_boss else 0.3): 
+        if random.random() < (1.0 if is_boss else 0.15): 
             new_item = generate_rng_item(new_lvl, random.choice(["weapon", "armor"]))
             inv.append(new_item); dropped_items.append(new_item)
         
@@ -355,19 +318,13 @@ def merge_items():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         inv = char.get('inventory', []); target_rarity = data.get('rarity'); target_type = data.get('type')
-        
         matching_items = [i for i in inv if i.get('rarity') == target_rarity and i.get('type') == target_type and i.get('id') not in [char.get('weapon'), char.get('armor')]]
-        if len(matching_items) < 5: return jsonify({"status": "error", "message": "Потрібно 5 однакових предметів!"}), 400
-            
+        if len(matching_items) < 5: return jsonify({"status": "error", "message": "Потрібно 5 предметів!"}), 400
         next_rarity = RARITIES[target_rarity]["next"]
-        if not next_rarity: return jsonify({"status": "error", "message": "Це максимальна рідкість!"}), 400
-            
+        if not next_rarity: return jsonify({"status": "error", "message": "Макс. рідкість!"}), 400
         for i in range(5): inv.remove(matching_items[i])
-            
         new_item = generate_rng_item(char['level'], target_type, force_rarity=next_rarity)
-        new_item['name'] = f"✨ Злитий {new_item['name']}"
-        inv.append(new_item)
-        
+        new_item['name'] = f"✨ Злитий {new_item['name']}"; inv.append(new_item)
         supabase.table('characters').update({"inventory": inv}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "item": new_item}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
@@ -380,18 +337,14 @@ def upgrade_item():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         inv = char.get('inventory', []); item_id = data.get('id')
-        
         item_idx = next((i for i, item in enumerate(inv) if item['id'] == item_id), None)
-        if item_idx is None: return jsonify({"status": "error", "message": "Предмет не знайдено!"}), 400
-        if char['gold'] < 1000: return jsonify({"status": "error", "message": "Потрібно 1000 🪙 для зачарування!"}), 400
-            
+        if item_idx is None: return jsonify({"status": "error", "message": "Не знайдено!"}), 400
+        if char['gold'] < 1000: return jsonify({"status": "error", "message": "Потрібно 1000 🪙"}), 400
         inv[item_idx]['upgrade_level'] = inv[item_idx].get('upgrade_level', 0) + 1
         inv[item_idx]['stat'] = int(inv[item_idx]['stat'] * 1.15)
-        
         current_name = inv[item_idx]['name']; level = inv[item_idx]['upgrade_level']
         if f"+{level-1}" in current_name: inv[item_idx]['name'] = current_name.replace(f"+{level-1}", f"+{level}")
         else: inv[item_idx]['name'] = f"{current_name} +{level}"
-            
         supabase.table('characters').update({"inventory": inv, "gold": char['gold'] - 1000}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "message": f"Зачаровано до +{level}!"}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
@@ -404,7 +357,10 @@ def win_survival():
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         
-        gold_reward = int(150 * (1.15 ** wave)) + (wave * 30); exp_gain = 30 + (wave * 5)
+        # ЛІНІЙНЕ ЗРОСТАННЯ (ніяких 24000 золота)
+        gold_reward = 100 + (wave * 25)
+        exp_gain = 30 + (wave * 5)
+        
         new_chests = char.get('chests', 0)
         if wave % 5 == 0: new_chests += 1
         new_record = max(char.get('survival_wave', 1), wave)
@@ -420,10 +376,8 @@ def claim_achievement():
         ach_id = request.json.get('id')
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
-        
         claimed = char.get('claimed_achievements', [])
         if ach_id in claimed: return jsonify({"status": "error", "message": "Вже забрано!"}), 400
-        
         claimed.append(ach_id); reward = 50 
         supabase.table('characters').update({"diamonds": char.get('diamonds', 0) + reward, "claimed_achievements": claimed}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "reward": reward}), 200
@@ -436,20 +390,16 @@ def learn_pet_passive():
         data = request.json
         user_id = supabase.table('users').select('id').eq('email', get_jwt_identity()).execute().data[0]['id']
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
-        
         pets = char.get('pets', []); pet_id = data.get('pet_id'); passive = data.get('passive')
         pet_idx = next((i for i, p in enumerate(pets) if p['id'] == pet_id), None)
         if pet_idx is None: return jsonify({"status": "error", "message": "Пета не знайдено!"}), 400
-        
         passives = pets[pet_idx].get('passives', [])
         if passive in passives: return jsonify({"status": "error", "message": "Навичка вже вивчена!"}), 400
-        
         passives.append(passive); pets[pet_idx]['passives'] = passives
         supabase.table('characters').update({"pets": pets}).eq('id', char['id']).execute()
         return jsonify({"status": "success", "message": "Навичку засвоєно!"}), 200
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
 
-# НОВИЙ МАРШРУТ: МАГАЗИН ГЕМІВ
 @app.route('/api/gem_shop', methods=['POST'])
 @jwt_required()
 def gem_shop():
@@ -459,9 +409,10 @@ def gem_shop():
         char = supabase.table('characters').select('*').eq('user_id', user_id).execute().data[0]
         pack = data.get('pack')
         
-        if pack == 'gold': cost = 10; reward_type = 'gold'; amount = 2000
-        elif pack == 'epic': cost = 30; reward_type = 'item'; rarity = 'Epic'
-        elif pack == 'legendary': cost = 100; reward_type = 'item'; rarity = 'Legendary'
+        # ПІДНЯВ ЦІНИ ЗА ГЕМИ
+        if pack == 'gold': cost = 50; reward_type = 'gold'; amount = 5000
+        elif pack == 'epic': cost = 150; reward_type = 'item'; rarity = 'Epic'
+        elif pack == 'legendary': cost = 500; reward_type = 'item'; rarity = 'Legendary'
         else: return jsonify({"status": "error", "message": "Невідомий пак!"}), 400
 
         if char.get('diamonds', 0) < cost: return jsonify({"status": "error", "message": "Недостатньо алмазів 💎!"}), 400
